@@ -1,0 +1,30 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Mojo nightly
+        run: |
+          uv venv
+          uv pip install mojo \
+            --index https://whl.modular.com/nightly/simple/ \
+            --prerelease allow
+          .venv/bin/mojo --version
+
+      # Protocol unit tests only — they need no Redis server. The
+      # integration suite (test/test_integration.mojo) requires a live
+      # server and is run locally, not in CI, for v0.1.
+      - name: Protocol tests
+        run: .venv/bin/mojo run -I src test/test_resp.mojo

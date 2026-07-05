@@ -1,0 +1,5 @@
+.venv/
+.pixi/
+pixi.lock
+*.mojopkg
+__pycache__/

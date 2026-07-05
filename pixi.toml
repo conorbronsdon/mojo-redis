@@ -1,0 +1,20 @@
+[workspace]
+authors = ["Conor Bronsdon <cmbronsdon@gmail.com>"]
+channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
+name = "mojo-redis"
+description = "A Redis client for Mojo (RESP2), redis-py-shaped, over direct libc socket FFI"
+platforms = ["linux-64", "osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+# Protocol unit tests — pure, no server required (this is what CI runs).
+test = "mojo run -I src test/test_resp.mojo"
+# Integration tests — require a live Redis server. Set REDIS_HOST/REDIS_PORT
+# (defaults 127.0.0.1:6379). e.g.:
+#   redis-server --port 6399 --daemonize yes --save "" --appendonly no
+#   REDIS_PORT=6399 pixi run test-integration
+test-integration = "mojo run -I src test/test_integration.mojo"
+demo = "mojo run -I src examples/demo.mojo"
+
+[dependencies]
+mojo = ">=1.0.0b3,<2"
