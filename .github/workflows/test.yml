@@ -28,3 +28,9 @@ jobs:
       # server and is run locally, not in CI, for v0.1.
       - name: Protocol tests
         run: .venv/bin/mojo run -I src test/test_resp.mojo
+
+      # Transport regression tests — self-contained (own loopback peer, no
+      # Redis server). Exercises the SIGPIPE fix on Linux (MSG_NOSIGNAL): a
+      # write to a dead connection must raise, not kill the runner.
+      - name: Connection regression tests
+        run: .venv/bin/mojo run -I src test/test_connection.mojo

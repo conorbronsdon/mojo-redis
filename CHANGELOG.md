@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **Transport: suppress SIGPIPE on a dead connection.** Writing to a
+  socket whose peer has closed delivered `SIGPIPE`, terminating the whole
+  process (exit 141) before `send()` could return `EPIPE` — so the
+  existing error path never ran. CPython avoids this by installing
+  `SIG_IGN` for `SIGPIPE`; a Mojo process does not. Fixed at the syscall
+  boundary, platform-gated: `MSG_NOSIGNAL` on the `send()` flags on Linux,
+  `SO_NOSIGPIPE` via `setsockopt(2)` after `socket()` on macOS/BSD. A dead
+  peer now raises a catchable `Error`. Regression covered by
+  `test/test_connection.mojo` (self-contained, no server; runs in CI).
+- **Build: `pixi install` failed to resolve.** The `mojo = ">=1.0.0b3"`
+  pin sorts *after* the dev nightlies (`1.0.0b3.dev…`), so the solver
+  found no candidates. Pinned to `>=1.0.0b3.dev0,<2`.
+
 ## 0.1.0 — 2026-07-05
 
 Initial release. A synchronous Redis client in pure Mojo speaking RESP2

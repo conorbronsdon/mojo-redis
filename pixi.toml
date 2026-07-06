@@ -9,6 +9,9 @@ version = "0.1.0"
 [tasks]
 # Protocol unit tests — pure, no server required (this is what CI runs).
 test = "mojo run -I src test/test_resp.mojo"
+# Transport regression tests — self-contained (each test stands up its own
+# throwaway loopback peer via FFI); no Redis server needed, CI-safe.
+test-connection = "mojo run -I src test/test_connection.mojo"
 # Integration tests — require a live Redis server. Set REDIS_HOST/REDIS_PORT
 # (defaults 127.0.0.1:6379). e.g.:
 #   redis-server --port 6399 --daemonize yes --save "" --appendonly no
@@ -17,4 +20,7 @@ test-integration = "mojo run -I src test/test_integration.mojo"
 demo = "mojo run -I src examples/demo.mojo"
 
 [dependencies]
-mojo = ">=1.0.0b3,<2"
+# Must be `.dev0`, not `1.0.0b3`: a bare `1.0.0b3` sorts *after* the dev
+# nightlies (e.g. 1.0.0b3.dev2026070506), so the solver rejects the only
+# available builds and `pixi install` fails to resolve.
+mojo = ">=1.0.0b3.dev0,<2"
