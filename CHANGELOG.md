@@ -33,5 +33,5 @@ over a direct libc TCP socket (no third-party networking dependency).
   `expire`, `ttl`, `keys`, `ping`, `lpush`/`rpush`/`lpop`/`rpop`/`lrange`,
   `hset`/`hget`/`hgetall`, `flushdb`, an `execute` escape hatch, and
   `pipeline`/`execute_pipeline`.
-- **Tests**: 29 protocol unit tests (no network) and 21 integration tests
+- **Tests**: 34 protocol unit tests (no network) and 21 integration tests
   against a live server, all passing. CI runs the protocol suite only.

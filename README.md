@@ -33,6 +33,23 @@ def main() raises:
     r.close()
 ```
 
+### Coming from Python
+
+If you know `redis-py`, the client methods map directly:
+
+| Python (`redis-py`)                 | mojo-redis                             |
+| ----------------------------------- | -------------------------------------- |
+| `r = redis.Redis(host, port)`       | `var r = Redis(host, port)`            |
+| `r.set("k", "v")`                   | `r.set("k", "v")`                      |
+| `r.set("k", "v", ex=60)`            | `r.set("k", "v", ex=60)`               |
+| `r.get("k")`                        | `r.get("k").value()`                   |
+| `r.incr("k")` / `r.decr("k")`       | `r.incr("k")` / `r.decr("k")`          |
+| `r.hset("h", "f", "v")` / `r.hgetall("h")` | `r.hset("h", "f", "v")` / `r.hgetall("h")` |
+
+One difference: `get` returns an `Optional[String]`, so call `.value()` when
+the key exists (or test the optional with `Bool(...)` for a miss) rather than
+getting a bare string or `None`.
+
 ## What it handles
 
 - **RESP2 protocol**: a serializer for command arrays and a parser for
@@ -117,7 +134,7 @@ Two layers:
 1. **Protocol unit tests** (`test/test_resp.mojo`): pure and
    network-free. RESP serialize/parse round-trips, split-buffer
    (incremental) parsing, nil handling, nested arrays, error replies.
-   29 tests. This is what CI runs.
+   34 tests. This is what CI runs.
 
    ```bash
    pixi run test     # or: mojo run -I src test/test_resp.mojo
@@ -134,7 +151,7 @@ Two layers:
    REDIS_PORT=6399 pixi run test-integration
    ```
 
-Both suites pass: 29 protocol tests plus 21 live-Redis integration tests.
+Both suites pass: 34 protocol tests plus 21 live-Redis integration tests.
 
 ## Layout
 
@@ -152,9 +169,11 @@ examples/
 
 ## Part of a pure-Mojo library suite
 
-Ten pure-Mojo libraries that mirror familiar Python stdlib and PyPI APIs,
+Eleven pure-Mojo libraries that mirror familiar Python stdlib and PyPI APIs,
 filling gaps in the native Mojo ecosystem:
 
+- [mojo-xml](https://github.com/conorbronsdon/mojo-xml) — general-purpose XML
+  parsing, an ElementTree-shaped DOM (Python's `xml.etree.ElementTree`)
 - [mojo-feed](https://github.com/conorbronsdon/mojo-feed) — RSS, Atom, and
   JSON Feed parsing (Python's `feedparser`)
 - [mojo-captions](https://github.com/conorbronsdon/mojo-captions) — SRT and
