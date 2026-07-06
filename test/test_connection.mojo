@@ -15,7 +15,7 @@ the regression signal.
 from std.ffi import external_call
 from std.memory import UnsafePointer, alloc
 from std.time import sleep
-from std.testing import assert_true, TestSuite
+from std.testing import assert_true, assert_false, TestSuite
 
 from redis.connection import Connection
 
@@ -91,6 +91,72 @@ def _accept_then_close_cleanly(listen_fd: Int32) raises:
     if cfd >= 0:
         _ = external_call["close", Int32](cfd)
     _ = external_call["close", Int32](listen_fd)
+
+
+def _accept(listen_fd: Int32) raises -> Int32:
+    """Accept the queued connection and return its fd (kept open)."""
+    var addr = alloc[UInt8](16)
+    var alen = alloc[UInt32](1)
+    alen.init_pointee_copy(UInt32(16))
+    var cfd = external_call["accept", Int32](listen_fd, addr, alen)
+    addr.free()
+    alen.free()
+    if cfd < 0:
+        raise Error("test peer: accept() failed")
+    return cfd
+
+
+def _server_send(fd: Int32, s: String) raises:
+    """Write raw bytes from the server side of the connection."""
+    var b = s.as_bytes()
+    var n = external_call["send", Int](fd, b.unsafe_ptr(), len(b), Int32(0))
+    if n < 0:
+        raise Error("test peer: send() failed")
+
+
+def test_poisoned_connection_is_closed() raises:
+    """A protocol/parse error must close the connection, not leave it reusable.
+
+    Regression guard for the poisoned-connection fix. The server sends one
+    corrupt reply (an unknown RESP type byte); `read_reply` must raise *and*
+    close the socket, so a later command fails fast rather than misframing
+    every subsequent reply. redis-py likewise disconnects on InvalidResponse.
+    """
+    var listener = _spawn_loopback_listener()
+
+    var conn = Connection(String("127.0.0.1"), listener.port)
+    conn.connect()
+    var cfd = _accept(listener.fd)
+
+    # `!` is not a valid RESP2 type byte -> the parser must reject it.
+    _server_send(cfd, "!bogus\r\n")
+    sleep(0.2)
+
+    var raised = False
+    try:
+        _ = conn.read_reply()
+    except:
+        raised = True
+    assert_true(raised, "a corrupt reply should raise")
+
+    # The poisoned connection must now be closed, not left open for reuse.
+    assert_false(
+        conn.is_open(),
+        "connection must be closed after a protocol error",
+    )
+
+    # A subsequent command must fail fast (closed) rather than misbehave.
+    var raised_after = False
+    try:
+        conn.send_command(["PING"])
+    except:
+        raised_after = True
+    assert_true(
+        raised_after, "a command on a poisoned/closed connection must raise"
+    )
+
+    _ = external_call["close", Int32](cfd)
+    _ = external_call["close", Int32](listener.fd)
 
 
 def test_send_on_dead_connection_raises() raises:

@@ -51,6 +51,14 @@ comptime _MSG_NOSIGNAL = Int32(0x4000)  # Linux <sys/socket.h>
 comptime _SOL_SOCKET = Int32(0xFFFF)  # macOS/BSD <sys/socket.h>
 comptime _SO_NOSIGPIPE = Int32(0x1022)  # macOS/BSD <sys/socket.h>
 
+# Ceiling on the unparsed receive buffer. Bounds memory when a reply never
+# completes — e.g. a server (or attacker) that dribbles bytes without ever
+# finishing one reply would otherwise grow this buffer without limit. Sized
+# just above resp's `_MAX_BULK_LEN` (512 MiB) so a legitimately max-sized bulk
+# reply can still be buffered and parsed; the slack covers header/CRLF framing
+# and any pipelined trailing bytes.
+comptime _MAX_BUFFER = 528 * 1024 * 1024  # 528 MiB
+
 
 def _parse_ipv4(host: String) raises -> InlineArray[UInt8, 4]:
     """Parse a dotted-quad IPv4 address into 4 network-order bytes.
@@ -193,6 +201,9 @@ struct Connection(Movable):
                 self.fd, ptr + sent, total - sent, send_flags
             )
             if n <= 0:
+                # A failed write leaves the connection unusable; close it so a
+                # later command fails fast instead of silently misbehaving.
+                self.close()
                 raise Error("redis: send() failed (rc=" + String(n) + ")")
             sent += n
 
@@ -212,6 +223,15 @@ struct Connection(Movable):
         if n < 0:
             chunk.free()
             raise Error("redis: recv() failed (rc=" + String(n) + ")")
+        if len(self._buf) + n > _MAX_BUFFER:
+            # DoS guard: a reply that never completes must not grow the buffer
+            # without bound (see `_MAX_BUFFER`). read_reply closes on this raise.
+            chunk.free()
+            raise Error(
+                "redis: unparsed reply buffer exceeded "
+                + String(_MAX_BUFFER)
+                + " bytes"
+            )
         for k in range(n):
             self._buf.append((chunk + k).load())
         chunk.free()
@@ -224,16 +244,24 @@ struct Connection(Movable):
         """
         if self.fd < 0:
             raise Error("redis: read on a closed connection")
-        while True:
-            var result = parse_reply(Span(self._buf))
-            if result.ok:
-                # Drop the consumed prefix, keep any trailing bytes.
-                var remainder = List[UInt8]()
-                for i in range(result.consumed, len(self._buf)):
-                    remainder.append(self._buf[i])
-                self._buf = remainder^
-                return result^.take_value()
-            self._fill_more()
+        try:
+            while True:
+                var result = parse_reply(Span(self._buf))
+                if result.ok:
+                    # Drop the consumed prefix, keep any trailing bytes.
+                    var remainder = List[UInt8]()
+                    for i in range(result.consumed, len(self._buf)):
+                        remainder.append(self._buf[i])
+                    self._buf = remainder^
+                    return result^.take_value()
+                self._fill_more()
+        except e:
+            # A parse error (protocol desync) or a transport error leaves the
+            # byte stream out of sync — every later reply on this socket would
+            # be misframed. Close so the poisoned connection can't be silently
+            # reused; redis-py likewise disconnects on an InvalidResponse.
+            self.close()
+            raise e^
 
     def close(mut self):
         """Close the socket if open. Idempotent."""

@@ -44,6 +44,16 @@ comptime _NINE = UInt8(ord("9"))
 # sibling libraries cap analogous recursion at 256, and 128 is ample here.
 comptime _MAX_DEPTH = 128
 
+# Ceilings on a single reply's advertised sizes, to bound the memory a hostile
+# or buggy server can make the client buffer/allocate. A bulk-string length or
+# array element count larger than these is rejected outright (raises) rather
+# than driving unbounded `recv`/allocation. Without the bulk cap, a header like
+# `$999999999999999999\r\n` would make the transport `recv` forever, growing
+# its buffer without limit, waiting for bytes that never come. 512 MiB matches
+# Redis's own default `proto-max-bulk-len`.
+comptime _MAX_BULK_LEN = 512 * 1024 * 1024  # 512 MiB, per bulk string
+comptime _MAX_ARRAY_COUNT = 1024 * 1024  # 1,048,576 elements, per array
+
 
 struct RespValue(Copyable, Movable, Writable):
     """A decoded RESP2 reply value.
@@ -329,6 +339,16 @@ def _parse(
         if length < -1:
             # Only `-1` (null bulk) is a legal negative length.
             raise Error("redis: invalid bulk-string length")
+        if length > _MAX_BULK_LEN:
+            # DoS guard: reject an oversized advertised length before it can
+            # drive unbounded recv/allocation (see `_MAX_BULK_LEN`).
+            raise Error(
+                "redis: bulk-string length "
+                + String(length)
+                + " exceeds cap of "
+                + String(_MAX_BULK_LEN)
+                + " bytes"
+            )
         # A complete bulk string's body plus its trailing CRLF must already
         # fit in the buffer window past the header. If `length` is larger,
         # the reply is either not yet fully received (incomplete) or hostile
@@ -349,6 +369,15 @@ def _parse(
         var count = _atoi(header)
         if count < 0:
             return ParseResult(True, after - offset, RespValue.nil())
+        if count > _MAX_ARRAY_COUNT:
+            # DoS guard: an oversized element count amplifies memory even with
+            # tiny elements; reject before allocating (see `_MAX_ARRAY_COUNT`).
+            raise Error(
+                "redis: array element count "
+                + String(count)
+                + " exceeds cap of "
+                + String(_MAX_ARRAY_COUNT)
+            )
         var items = List[ArcPointer[RespValue]]()
         var pos = after
         for _ in range(count):
