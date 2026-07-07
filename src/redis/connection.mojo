@@ -27,6 +27,7 @@ up yet. Sockets are blocking; there is no connect/read timeout.
 
 from std.ffi import external_call
 from std.memory import UnsafePointer, alloc
+from std.sys.info import CompilationTarget
 
 from .resp import RespValue, ParseResult, parse_reply, encode_command
 
@@ -34,6 +35,29 @@ comptime _AF_INET = Int32(2)
 comptime _SOCK_STREAM = Int32(1)
 comptime _SOCKADDR_IN_SIZE = 16
 comptime _RECV_CHUNK = 4096
+
+# --- SIGPIPE suppression -----------------------------------------------------
+# Writing to a socket whose peer has closed delivers SIGPIPE, whose default
+# disposition terminates the process (exit 141) *before* send() can return
+# EPIPE — so the error-handling path below would never run. CPython dodges
+# this by installing SIG_IGN for SIGPIPE at startup; a Mojo process does not,
+# so we suppress the signal at the syscall boundary instead, and let the
+# existing `n <= 0 -> raise` path surface a catchable Error. This is done
+# platform-specifically because the two POSIX flavors expose different knobs:
+#   * Linux: pass MSG_NOSIGNAL in the send() flags (per-call).
+#   * macOS/BSD: no MSG_NOSIGNAL — set SO_NOSIGPIPE once via setsockopt(2)
+#     right after socket() (per-socket).
+comptime _MSG_NOSIGNAL = Int32(0x4000)  # Linux <sys/socket.h>
+comptime _SOL_SOCKET = Int32(0xFFFF)  # macOS/BSD <sys/socket.h>
+comptime _SO_NOSIGPIPE = Int32(0x1022)  # macOS/BSD <sys/socket.h>
+
+# Ceiling on the unparsed receive buffer. Bounds memory when a reply never
+# completes — e.g. a server (or attacker) that dribbles bytes without ever
+# finishing one reply would otherwise grow this buffer without limit. Sized
+# just above resp's `_MAX_BULK_LEN` (512 MiB) so a legitimately max-sized bulk
+# reply can still be buffered and parsed; the slack covers header/CRLF framing
+# and any pipelined trailing bytes.
+comptime _MAX_BUFFER = 528 * 1024 * 1024  # 528 MiB
 
 
 def _parse_ipv4(host: String) raises -> InlineArray[UInt8, 4]:
@@ -111,6 +135,23 @@ struct Connection(Movable):
         if fd < 0:
             raise Error("redis: socket() failed (rc=" + String(fd) + ")")
 
+        # macOS/BSD has no MSG_NOSIGNAL, so silence SIGPIPE per-socket here.
+        # On Linux this is a no-op (handled per-send via MSG_NOSIGNAL below).
+        comptime if CompilationTarget.is_macos():
+            var optval = alloc[Int32](1)
+            optval.init_pointee_copy(Int32(1))
+            var so_rc = external_call["setsockopt", Int32](
+                fd, _SOL_SOCKET, _SO_NOSIGPIPE, optval, UInt32(4)
+            )
+            optval.free()
+            if so_rc < 0:
+                _ = external_call["close", Int32](fd)
+                raise Error(
+                    "redis: setsockopt(SO_NOSIGPIPE) failed (rc="
+                    + String(so_rc)
+                    + ")"
+                )
+
         # Build a Linux sockaddr_in (16 bytes): family(2) port(2, BE)
         # addr(4, BE) then 8 zero padding bytes.
         var sa = alloc[UInt8](_SOCKADDR_IN_SIZE)
@@ -147,11 +188,22 @@ struct Connection(Movable):
         var total = len(data)
         var sent = 0
         var ptr = data.unsafe_ptr()
+        # On Linux, MSG_NOSIGNAL suppresses SIGPIPE per-call; on macOS/BSD the
+        # signal is already off via SO_NOSIGPIPE (set in connect()), so send
+        # with no flags. Either way a dead peer now returns EPIPE and raises.
+        var send_flags: Int32
+        comptime if CompilationTarget.is_linux():
+            send_flags = _MSG_NOSIGNAL
+        else:
+            send_flags = Int32(0)
         while sent < total:
             var n = external_call["send", Int](
-                self.fd, ptr + sent, total - sent, Int32(0)
+                self.fd, ptr + sent, total - sent, send_flags
             )
             if n <= 0:
+                # A failed write leaves the connection unusable; close it so a
+                # later command fails fast instead of silently misbehaving.
+                self.close()
                 raise Error("redis: send() failed (rc=" + String(n) + ")")
             sent += n
 
@@ -171,6 +223,15 @@ struct Connection(Movable):
         if n < 0:
             chunk.free()
             raise Error("redis: recv() failed (rc=" + String(n) + ")")
+        if len(self._buf) + n > _MAX_BUFFER:
+            # DoS guard: a reply that never completes must not grow the buffer
+            # without bound (see `_MAX_BUFFER`). read_reply closes on this raise.
+            chunk.free()
+            raise Error(
+                "redis: unparsed reply buffer exceeded "
+                + String(_MAX_BUFFER)
+                + " bytes"
+            )
         for k in range(n):
             self._buf.append((chunk + k).load())
         chunk.free()
@@ -183,16 +244,24 @@ struct Connection(Movable):
         """
         if self.fd < 0:
             raise Error("redis: read on a closed connection")
-        while True:
-            var result = parse_reply(Span(self._buf))
-            if result.ok:
-                # Drop the consumed prefix, keep any trailing bytes.
-                var remainder = List[UInt8]()
-                for i in range(result.consumed, len(self._buf)):
-                    remainder.append(self._buf[i])
-                self._buf = remainder^
-                return result^.take_value()
-            self._fill_more()
+        try:
+            while True:
+                var result = parse_reply(Span(self._buf))
+                if result.ok:
+                    # Drop the consumed prefix, keep any trailing bytes.
+                    var remainder = List[UInt8]()
+                    for i in range(result.consumed, len(self._buf)):
+                        remainder.append(self._buf[i])
+                    self._buf = remainder^
+                    return result^.take_value()
+                self._fill_more()
+        except e:
+            # A parse error (protocol desync) or a transport error leaves the
+            # byte stream out of sync — every later reply on this socket would
+            # be misframed. Close so the poisoned connection can't be silently
+            # reused; redis-py likewise disconnects on an InvalidResponse.
+            self.close()
+            raise e^
 
     def close(mut self):
         """Close the socket if open. Idempotent."""

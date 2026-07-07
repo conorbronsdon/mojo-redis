@@ -300,6 +300,22 @@ def test_integer_reply_overflow_raises() raises:
         _ = parse_reply(Span(_bytes(":99999999999999999999999999\r\n")))
 
 
+def test_bulk_length_exceeds_cap_raises() raises:
+    # DoS guard: an oversized advertised bulk length (well under the 19-digit
+    # overflow limit, so `_atoi` accepts it) must be rejected outright rather
+    # than buffered — otherwise the transport would `recv` unbounded waiting
+    # for a body that never arrives. `$999999999999999999` ~ 1e18 bytes.
+    with assert_raises():
+        _ = parse_reply(Span(_bytes("$999999999999999999\r\n")))
+
+
+def test_array_count_exceeds_cap_raises() raises:
+    # DoS guard: a huge array element count amplifies memory even with tiny
+    # elements; it must raise before allocating. 9,999,999 > the 1,048,576 cap.
+    with assert_raises():
+        _ = parse_reply(Span(_bytes("*9999999\r\n")))
+
+
 def test_deep_nesting_raises() raises:
     # 500 stacked `*1\r\n` headers would recurse 500 deep and overflow the
     # native stack; the depth cap must reject it with a clean error.
