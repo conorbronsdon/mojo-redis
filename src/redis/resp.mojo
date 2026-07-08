@@ -388,9 +388,7 @@ def _parse(
             items.append(ArcPointer(element^.take_value()))
         return ParseResult(True, pos - offset, RespValue.array(items^))
 
-    raise Error(
-        "redis: unknown RESP type byte " + String(Int(kind_byte))
-    )
+    raise Error("redis: unknown RESP type byte " + String(Int(kind_byte)))
 
 
 def parse_reply(data: Span[UInt8, _]) raises -> ParseResult:

@@ -166,9 +166,7 @@ def test_parse_mixed_array() raises:
 
 def test_parse_nested_array() raises:
     # *2 [ *2 [:1 :2] , $5 hello ]
-    var r = parse_reply(
-        Span(_bytes("*2\r\n*2\r\n:1\r\n:2\r\n$5\r\nhello\r\n"))
-    )
+    var r = parse_reply(Span(_bytes("*2\r\n*2\r\n:1\r\n:2\r\n$5\r\nhello\r\n")))
     assert_true(r.ok)
     assert_equal(r.value.kind, RESP_ARRAY)
     assert_equal(r.value.count(), 2)
