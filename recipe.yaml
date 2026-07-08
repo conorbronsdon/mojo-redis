@@ -1,0 +1,39 @@
+# rattler-build recipe for publishing mojo-redis to a conda channel
+# (e.g. modular-community). Not wired to CI yet — this documents the intended
+# distribution shape and is ready to build the day we decide to publish.
+#
+# Distributes the pure-Mojo SOURCE TREE, not a compiled `.mojopkg`: a .mojopkg
+# embeds the exact compiler version and refuses to load against any other, so a
+# benign Mojo nightly bump would break every consumer. Shipping source + a
+# runtime `mojo` pin gets reproducibility without ABI lock-in. (Pattern follows
+# ehsanmok/flare's recipe.)
+#
+# Build locally with: rattler-build build --recipe recipe.yaml
+
+context:
+  version: "0.1.0"
+
+package:
+  name: mojo-redis
+  version: ${{ version }}
+
+source:
+  path: .
+
+build:
+  number: 0
+  noarch: generic
+  script:
+    - mkdir -p ${{ PREFIX }}/lib/mojo
+    - cp -r src/redis ${{ PREFIX }}/lib/mojo/redis
+
+requirements:
+  run:
+    - mojo >=1.0.0b3.dev0,<2
+
+about:
+  homepage: https://github.com/conorbronsdon/mojo-redis
+  repository: https://github.com/conorbronsdon/mojo-redis
+  license: MIT
+  license_file: LICENSE
+  summary: A Redis client for Mojo (RESP2), redis-py-shaped, over direct libc socket FFI

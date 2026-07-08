@@ -3,3 +3,7 @@
 pixi.lock
 *.mojopkg
 __pycache__/
+.bench_resp
+docs/api.json
+docs/api.html
+docs/site/

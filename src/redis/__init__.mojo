@@ -1,3 +1,5 @@
+"""RESP2 Redis client for Mojo, redis-py-shaped (mojo-redis)."""
+
 from .resp import (
     RespValue,
     ParseResult,
