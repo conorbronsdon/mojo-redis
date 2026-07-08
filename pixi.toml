@@ -18,6 +18,9 @@ test-connection = "mojo run -I src test/test_connection.mojo"
 #   REDIS_PORT=6399 pixi run test-integration
 test-integration = "mojo run -I src test/test_integration.mojo"
 demo = "mojo run -I src examples/demo.mojo"
+bench = "mojo build -I src bench/bench_resp.mojo -o .bench_resp && ./.bench_resp"
+fmt = "mojo format src/ test/ examples/ bench/"
+docs = "mojo doc -o docs/api.json -I src src/redis && python3 docs/render_api.py docs/api.json docs/api.html"
 
 [dependencies]
 # Must be `.dev0`, not `1.0.0b3`: a bare `1.0.0b3` sorts *after* the dev

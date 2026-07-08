@@ -23,6 +23,11 @@ jobs:
             --prerelease allow
           .venv/bin/mojo --version
 
+      - name: Format check
+        run: |
+          .venv/bin/mojo format src/ test/ examples/ bench/
+          git diff --exit-code || (echo "::error::Run 'pixi run fmt' — sources are not mojo-format clean" && exit 1)
+
       # Protocol unit tests only — they need no Redis server. The
       # integration suite (test/test_integration.mojo) requires a live
       # server and is run locally, not in CI, for v0.1.
