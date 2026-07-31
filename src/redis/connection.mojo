@@ -94,7 +94,7 @@ def _parse_ipv4(host: String) raises -> InlineArray[UInt8, 4]:
         i += 1
     if idx != 4:
         raise Error("redis: invalid IPv4 host '" + host + "'")
-    return octets
+    return octets^
 
 
 struct Connection(Movable):
@@ -198,7 +198,7 @@ struct Connection(Movable):
             send_flags = Int32(0)
         while sent < total:
             var n = external_call["send", Int](
-                self.fd, ptr + sent, total - sent, send_flags
+                self.fd, ptr.unsafe_offset(sent), total - sent, send_flags
             )
             if n <= 0:
                 # A failed write leaves the connection unusable; close it so a
