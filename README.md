@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Mojo](https://img.shields.io/badge/Mojo-1.0.0b3%2B_nightly-orange?style=flat-square)](https://mojolang.org)
-[![Podcast](https://img.shields.io/badge/Podcast-Chain_of_Thought-purple?style=flat-square)](https://chainofthought.show)
+[![Podcast](https://img.shields.io/badge/Podcast-Chain_of_Thought-purple?style=flat-square)](https://chainofthought.show/?utm_source=github&utm_medium=referral&utm_campaign=repo-readme&utm_content=mojo-redis)
 [![X](https://img.shields.io/badge/X-@ConorBronsdon-black?style=flat-square&logo=x)](https://x.com/ConorBronsdon)
 
 <img src="docs/social-preview.png" alt="mojo-redis: a Redis client in pure Mojo" width="800">
@@ -202,8 +202,8 @@ transport edge cases (partial reads, connection drops). Run
 
 ## About
 
-Built by [Conor Bronsdon](https://conorbronsdon.com) — host of
-[Chain of Thought](https://chainofthought.show), a podcast about AI agents,
+Built by [Conor Bronsdon](https://conorbronsdon.com/?utm_source=github&utm_medium=referral&utm_campaign=repo-readme&utm_content=mojo-redis) — host of
+[Chain of Thought](https://chainofthought.show/?utm_source=github&utm_medium=referral&utm_campaign=repo-readme&utm_content=mojo-redis), a podcast about AI agents,
 infrastructure, and engineering. Find me on [X](https://x.com/ConorBronsdon)
 or [LinkedIn](https://www.linkedin.com/in/conorbronsdon).
 
