@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-08-11
+
+- **Builds on released Mojo 1.0.** The pixi channel moved from
+  `max-nightly` to `max` and the dependency pin from `>=1.0.0b3.dev…` to
+  `>=1.0,<2`; CI installs `mojo==1.0.0` from PyPI instead of the nightly
+  index with `--prerelease allow`. The weekly drift check still runs
+  against the latest nightly, so the repo still reports when the language
+  moves under it.
+- **1.0 source fix (benchmark only).** `_report`'s `elapsed_ns`
+  parameter is now `Int`: `perf_counter_ns()` no longer returns `UInt`,
+  so `bench/bench_resp.mojo` failed to compile.
+- README test counts corrected: 34 → 36 protocol tests, and the two
+  transport regressions CI also runs are now named. The 21 live-Redis
+  integration tests were re-run against a real server and pass.
 
 ### Fixed
 - **Transport: suppress SIGPIPE on a dead connection.** Writing to a

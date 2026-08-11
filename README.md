@@ -5,7 +5,7 @@
 **A Redis client for Mojo, mirroring redis-py's basic surface. RESP2 over a direct libc socket, no third-party networking dependency.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Mojo](https://img.shields.io/badge/Mojo-1.0.0b3%2B_nightly-orange?style=flat-square)](https://mojolang.org)
+[![Mojo](https://img.shields.io/badge/Mojo-1.0-orange?style=flat-square)](https://mojolang.org)
 [![Podcast](https://img.shields.io/badge/Podcast-Chain_of_Thought-purple?style=flat-square)](https://chainofthought.show/?utm_source=github&utm_medium=referral&utm_campaign=repo-readme&utm_content=mojo-redis)
 [![X](https://img.shields.io/badge/X-@ConorBronsdon-black?style=flat-square&logo=x)](https://x.com/ConorBronsdon)
 
@@ -100,7 +100,7 @@ the protocol layer or the client.
 ## Install
 
 Add it to a pixi workspace, or point the compiler at `src/` with `-I src`
-as the tasks below do. Requires a Mojo nightly (`>=1.0.0b3`).
+as the tasks below do. Requires Mojo 1.0 or newer.
 
 ## Usage
 
@@ -134,7 +134,8 @@ Two layers:
 1. **Protocol unit tests** (`test/test_resp.mojo`): pure and
    network-free. RESP serialize/parse round-trips, split-buffer
    (incremental) parsing, nil handling, nested arrays, error replies.
-   34 tests. This is what CI runs.
+   36 tests. CI runs these plus the two transport regressions in
+   `test/test_connection.mojo`.
 
    ```bash
    pixi run test     # or: mojo run -I src test/test_resp.mojo
@@ -151,7 +152,8 @@ Two layers:
    REDIS_PORT=6399 pixi run test-integration
    ```
 
-Both suites pass: 34 protocol tests plus 21 live-Redis integration tests.
+Both suites pass: 36 protocol tests (plus 2 transport regressions) and
+21 live-Redis integration tests.
 
 ## Layout
 

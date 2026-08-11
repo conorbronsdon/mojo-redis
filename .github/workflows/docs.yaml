@@ -17,7 +17,7 @@ concurrency:
 env:
   # Keep in step with test.yml's pin -- docs runs `mojo doc`, which compiles the
   # sources and so breaks on the same stdlib changes the tests do.
-  MOJO_VERSION: "1.0.0b3.dev2026073014"
+  MOJO_VERSION: "1.0.0"
 
 jobs:
   build-deploy:
@@ -35,9 +35,7 @@ jobs:
       - name: Install Mojo
         run: |
           uv venv
-          uv pip install "mojo==$MOJO_VERSION" \
-            --index https://whl.modular.com/nightly/simple/ \
-            --prerelease allow
+          uv pip install "mojo==$MOJO_VERSION"
 
       - name: Generate API reference
         run: |
