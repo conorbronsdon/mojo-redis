@@ -19,7 +19,7 @@ def _bytes(s: String) -> List[UInt8]:
     return out^
 
 
-def _report(name: String, bytes_per_op: Int, iterations: Int, elapsed_ns: UInt):
+def _report(name: String, bytes_per_op: Int, iterations: Int, elapsed_ns: Int):
     var ns_per_op = Float64(elapsed_ns) / Float64(iterations)
     var mb_per_s = (
         Float64(bytes_per_op)

@@ -12,11 +12,11 @@ on:
   workflow_dispatch:
 
 env:
-  # The nightly this repo is known to build and pass on. CI installs exactly
-  # this for pushes and PRs, so upstream churn cannot turn a green repo red
-  # without a commit. Bump it when the weekly drift check goes green on a newer
-  # one, or after fixing whatever it caught.
-  MOJO_VERSION: "1.0.0b3.dev2026073014"
+  # The released Mojo this repo is known to build and pass on. CI installs
+  # exactly this for pushes and PRs, so upstream churn cannot turn a green repo
+  # red without a commit. Bump it when the weekly drift check goes green on a
+  # newer one, or after fixing whatever it caught.
+  MOJO_VERSION: "1.0.0"
 
 jobs:
   test:
@@ -40,9 +40,7 @@ jobs:
               --index https://whl.modular.com/nightly/simple/ \
               --prerelease allow
           else
-            uv pip install "mojo==$MOJO_VERSION" \
-              --index https://whl.modular.com/nightly/simple/ \
-              --prerelease allow
+            uv pip install "mojo==$MOJO_VERSION"
           fi
           .venv/bin/mojo --version
 
@@ -81,7 +79,7 @@ jobs:
           Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
           Fix the breakage, then bump MOJO_VERSION in .github/workflows/test.yml
-          and .github/workflows/docs.yaml to the nightly that passes.
+          and .github/workflows/docs.yaml to the release that passes.
           EOF
           )
           existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \

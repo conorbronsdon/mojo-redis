@@ -1,10 +1,10 @@
 [workspace]
 authors = ["Conor Bronsdon <cmbronsdon@gmail.com>"]
-channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
+channels = ["https://conda.modular.com/max", "conda-forge"]
 name = "mojo-redis"
 description = "A Redis client for Mojo (RESP2), redis-py-shaped, over direct libc socket FFI"
 platforms = ["linux-64", "osx-arm64"]
-version = "0.1.0"
+version = "0.2.0"
 
 [tasks]
 # Protocol unit tests — pure, no server required (this is what CI runs).
@@ -23,7 +23,4 @@ fmt = "mojo format src/ test/ examples/ bench/"
 docs = "mojo doc -o docs/api.json -I src src/redis && python3 docs/render_api.py docs/api.json docs/api.html"
 
 [dependencies]
-# Must be `.dev0`, not `1.0.0b3`: a bare `1.0.0b3` sorts *after* the dev
-# nightlies (e.g. 1.0.0b3.dev2026070506), so the solver rejects the only
-# available builds and `pixi install` fails to resolve.
-mojo = ">=1.0.0b3.dev0,<2"
+mojo = ">=1.0,<2"
